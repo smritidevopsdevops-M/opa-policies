@@ -76,7 +76,7 @@ module "storage_account" {
 module "blob_container" {
   source         = "./module/blob-container"
   container_name = var.container_name
-  storage_account_id = module.storage_account.storage_account_id
-  #storage_account_name = module.storage_account.storage_account_name
+  #storage_account_id = module.storage_account.storage_account_id
+  storage_account_name = module.storage_account.storage_account_name
 }
 
