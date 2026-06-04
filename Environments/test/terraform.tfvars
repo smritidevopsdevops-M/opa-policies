@@ -89,7 +89,7 @@ network_rules = {
   ]
 
   ip_rules = [
-    "103.21.244.0/22"
+    "22.127.133.43"
   ]
 
   virtual_network_subnet_ids = []
