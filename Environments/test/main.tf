@@ -5,7 +5,7 @@ module "resource_group" {
   location            = var.location
 }
 
-module "storage_accounts" {
+module "storage_account" {
   source = "./module/storage-account"
 
   # Basic Configuration
