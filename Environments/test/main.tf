@@ -73,7 +73,7 @@ module "storage_account" {
 #   is_critical      = var.is_critical
 # }
 
-module "blob_container" {
+module "blob_containers" {
   source         = "./module/blob-container"
   container_name = var.container_name
   #storage_account_id = module.storage_account.storage_account_id
