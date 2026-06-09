@@ -1,361 +1,76 @@
+name: Terraform-OPA
 
-# Policies/
-# └── opa/
-#     ├── helpers/
-#     │   ├── tags.rego
-#     │   └── naming.rego
-#     │
-#     ├── storage/
-#     │   ├── retention.rego
-#     │   └── versioning.rego
-#     │
-#     ├── vm/
-#     │   ├── encryption.rego
-#     │   └── identity.rego
-#     -----------------------------------
-#     package helpers #for import packages
-
-# required_tags = {
-#     "Environment",
-#     "Owner",
-#     "Project"
-# } 
-
-# package terraform
-
-# import data.helpers.required_tags
-
-# deny[msg] {
-#     resource := input.resource_changes[_]
-
-#     resource.type == "azurerm_storage_account"
-
-#     some tag in required_tags
-
-#     not resource.change.after.tags[tag]
-
-#     msg := sprintf(
-#         "Missing required tag: %s",
-#         [tag]
-#     )
-# } 
-# ------------------------------------- 
-# future keywords 
-# import future.keywords.if
-# import future.keywords.in 
-# ------------------------------------
-# reusable libraries folder 
-# ---------------------
-# repo-root/
-# │
-# ├── .github/
-# │   └── workflows/
-# │       └── terraform-opa-validation.yml
-# │
-# ├── terraform/
-# │   ├── environments/
-# │   │   ├── dev/
-# │   │   │   ├── backend.tf
-# │   │   │   ├── main.tf
-# │   │   │   ├── provider.tf
-# │   │   │   ├── variables.tf
-# │   │   │   ├── terraform.tfvars
-# │   │   │   ├── outputs.tf
-# │   │   │   └── versions.tf
-# │   │   │
-# │   │   ├── test/
-# │   │   ├── stage/
-# │   │   └── prod/
-# │   │
-# │   └── modules/
-# │       ├── storage-account/
-# │       │   ├── main.tf
-# │       │   ├── variables.tf
-# │       │   └── outputs.tf
-# │       │
-# │       ├── virtual-machine/
-# │       ├── network-security-group/
-# │       ├── keyvault/
-# │       └── resource-group/
-# │
-# ├── policies/
-# │   └── opa/
-# │       │
-# │       ├── helpers/
-# │       │   ├── resources.rego
-# │       │   ├── tags.rego
-# │       │   ├── naming.rego
-# │       │   ├── common.rego
-# │       │   └── utils.rego
-# │       │
-# │       ├── storage/
-# │       │   ├── soft-delete.rego
-# │       │   ├── versioning.rego
-# │       │   ├── retention.rego
-# │       │   └── https-only.rego
-# │       │
-# │       ├── vm/
-# │       │   ├── disk-encryption.rego
-# │       │   ├── managed-identity.rego
-# │       │   └── boot-diagnostics.rego
-# │       │
-# │       ├── network/
-# │       │   ├── nsg.rego
-# │       │   ├── no-public-ip.rego
-# │       │   └── subnet.rego
-# │       │
-# │       ├── keyvault/
-# │       │   ├── purge-protection.rego
-# │       │   └── soft-delete.rego
-# │       │
-# │       └── common/
-# │           ├── mandatory-tags.rego
-# │           └── naming-standard.rego
-# │
-# ├── scripts/
-# │   ├── terraform-plan.sh
-# │   └── opa-eval.sh
-# │
-# └── README.md
-# ---------------------------------------------
-# Why This Structure Is Best
-# Folder	Purpose
-# terraform/modules	reusable infra
-# terraform/environments	environment-specific deployment
-# policies/opa/helpers	reusable Rego functions
-# policies/opa/storage	storage policies
-# policies/opa/common	shared governance policies
-# .github/workflows	CI/CD
-# --------------------------------------------
-# 1. helpers/resources.rego
-
-# Reusable resource filters.
-
-# package helpers
-
-# import future.keywords.if
-# import future.keywords.in
-
-# storage_accounts := [
-#     resource |
-#     resource := input.resource_changes[_]
-#     resource.type == "azurerm_storage_account"
-# ]
-
-# virtual_machines := [
-#     resource |
-#     resource := input.resource_changes[_]
-#     resource.type == "azurerm_linux_virtual_machine"
-# ]
-
-# network_security_groups := [
-#     resource |
-#     resource := input.resource_changes[_]
-#     resource.type == "azurerm_network_security_group"
-# ]
-# 2. helpers/tags.rego
-# package helpers
-
-# required_tags := {
-#     "Environment",
-#     "Owner",
-#     "Project"
-# }
-# 3. helpers/naming.rego
-# package helpers
-
-# valid_prefixes := {
-#     "st",
-#     "vm",
-#     "kv",
-#     "nsg"
-# }
-# 4. helpers/utils.rego
-
-# Reusable helper functions.
-
-# package helpers
-
-# import future.keywords.if
-
-# resource_name(resource) := name if {
-#     name := resource.change.after.name
-# }
-# Example Storage Policy
-# policies/opa/storage/versioning.rego
-# package terraform
-
-# import future.keywords.if
-# import future.keywords.in
-
-# import data.helpers.storage_accounts
-
-# deny[msg] {
-#     resource := storage_accounts[_]
-
-#     not resource.change.after.blob_properties.versioning_enabled
-
-#     msg := sprintf(
-#         "Storage account '%s' has versioning disabled",
-#         [resource.name]
-#     )
-# }
-# Example VM Policy
-# vm/managed-identity.rego
-# package terraform
-
-# import future.keywords.if
-
-# import data.helpers.virtual_machines
-
-# deny[msg] {
-#     resource := virtual_machines[_]
-
-#     not resource.change.after.identity
-
-#     msg := sprintf(
-#         "VM '%s' missing managed identity",
-#         [resource.name]
-#     )
-# }
-# Example Common Governance Policy
-# common/mandatory-tags.rego
-# package terraform
-
-# import future.keywords.in
-
-# import data.helpers.required_tags
-
-# deny[msg] {
-#     resource := input.resource_changes[_]
-
-#     tag := required_tags[_]
-
-#     not resource.change.after.tags[tag]
-
-#     msg := sprintf(
-#         "Resource '%s' missing tag '%s'",
-#         [resource.name, tag]
-#     )
-# }
-# Why future.keywords
-
-# Recommended modern Rego syntax.
-
-# These imports enable:
-
-# if
-# in
-# every
-# contains
-
-# Cleaner syntax and future compatibility.
-
-# Almost all enterprise Rego codebases use:
-
-# import future.keywords.if
-# import future.keywords.in
-# Terraform Example Structure
-# environments/dev/main.tf
-# module "resource_group" {
-#   source = "../../modules/resource-group"
-
-#   rg_name  = var.rg_name
-#   location = var.location
-# }
-
-# module "storage_account" {
-#   source = "../../modules/storage-account"
-
-#   storage_account_name = var.storage_account_name
-#   resource_group_name  = module.resource_group.name
-#   location             = var.location
-# }
-
-# module "virtual_machine" {
-#   source = "../../modules/virtual-machine"
-
-#   vm_name             = var.vm_name
-#   resource_group_name = module.resource_group.name
-#   location            = var.location
-# }
-# Terraform Module Example
-# modules/storage-account/main.tf
-# resource "azurerm_storage_account" "this" {
-#   name                     = var.storage_account_name
-#   resource_group_name      = var.resource_group_name
-#   location                 = var.location
-
-#   account_tier             = "Standard"
-#   account_replication_type = "LRS"
-
-#   https_traffic_only_enabled = true
-
-#   blob_properties {
-
-#     versioning_enabled = true
-
-#     delete_retention_policy {
-#       days = 7
-#     }
-#   }
-
-#   tags = {
-#     Environment = "dev"
-#     Owner       = "platform-team"
-#     Project     = "infra"
-#   }
-# }
-# Enterprise GitHub Action Workflow
-# .github/workflows/terraform-opa-validation.yml
-# name: Terraform OPA Validation
-
-# on:
-#   pull_request:
-#   push:
-#     branches:
-#       - main
-
-# jobs:
-
-#   terraform-opa-validation:
-
-#     runs-on: ubuntu-latest
-
-#     defaults:
-#       run:
-#         working-directory: terraform/environments/dev
-
-#     steps:
-
-#       - name: Checkout Repository
-#         uses: actions/checkout@v4
-
-#       - name: Setup Terraform
-#         uses: hashicorp/setup-terraform@v3
-
-#       - name: Terraform Init
-#         run: terraform init
-
-#       - name: Terraform Validate
-#         run: terraform validate
-
-#       - name: Terraform Plan
-#         run: terraform plan -out=tfplan.binary
-
-#       - name: Convert Terraform Plan to JSON
-#         run: terraform show -json tfplan.binary > tfplan.json
-
-#       - name: Install OPA
-#         run: |
-#           curl -L -o opa https://openpolicyagent.org/downloads/latest/opa_linux_amd64_static
-#           chmod +x opa
-
-#       - name: Run OPA Policies
-#         run: |
-#           ../../../opa eval \
-#             --fail-defined \
-#             --format pretty \
-#             --input tfplan.json \
-#             --data ../../../policies/opa \
-#             "data.terraform.deny"
+on:
+push:
+branches:
+- main
+
+pull_request:
+branches:
+- main
+
+permissions:
+id-token: write
+contents: read
+
+env:
+TF_WORKING_DIR: Environments/test
+
+jobs:
+
+terraform:
+
+```
+runs-on: ubuntu-latest
+
+defaults:
+  run:
+    working-directory: ${{ env.TF_WORKING_DIR }}
+
+steps:
+
+  - name: Checkout Repository
+    uses: actions/checkout@v4
+
+  - name: Setup Terraform
+    uses: hashicorp/setup-terraform@v3
+
+  - name: Configure Terraform Cloud Credentials
+    run: |
+      mkdir -p ~/.terraform.d
+
+      cat > ~/.terraform.d/credentials.tfrc.json <<EOF
+      {
+        "credentials": {
+          "app.terraform.io": {
+            "token": "${{ secrets.TF_API_TOKEN }}"
+          }
+        }
+      }
+      EOF
+
+  - name: Azure Login using OIDC
+    uses: azure/login@v2
+    with:
+      client-id: ${{ secrets.AZURE_CLIENT_ID }}
+      tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+      subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+  - name: Terraform Init
+    run: terraform init
+
+  - name: Terraform Validate
+    run: terraform validate
+
+  - name: Terraform Plan
+    run: terraform plan -out=tfplan.binary
+
+  - name: Generate Plan JSON
+    run: terraform show -json tfplan.binary > tfplan.json
+
+  - name: Upload Plan
+    uses: actions/upload-artifact@v4
+    with:
+      name: terraform-plan
+      path: Environments/test/tfplan.json
+```
