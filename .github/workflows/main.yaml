@@ -73,4 +73,3 @@ steps:
     with:
       name: terraform-plan
       path: Environments/test/tfplan.json
-```
