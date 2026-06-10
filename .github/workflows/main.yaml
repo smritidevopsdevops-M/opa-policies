@@ -1,62 +1,3 @@
-name: Terraform-OPA
-
-on:
-  push:
-    branches:
-      - main
-
-  pull_request:
-    branches:
-      - main
-
-permissions:
-  id-token: write
-  contents: read
-
-env:
-  TF_WORKING_DIR: Environments/test
-
-jobs:
-  terraform:
-    runs-on: ubuntu-latest
-
-    defaults:
-      run:
-        working-directory: ${{ env.TF_WORKING_DIR }}
-
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-
-      - name: Configure Terraform Cloud Credentials
-        run: |
-          mkdir -p ~/.terraform.d
-          cat > ~/.terraform.d/credentials.tfrc.json <<EOF
-          {
-            "credentials": {
-              "app.terraform.io": {
-                "token": "${{ secrets.TF_API_TOKEN }}"
-              }
-            }
-          }
-          EOF
-
-      - name: Azure Login using OIDC
-        uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
-      - name: Terraform Init
-        run: terraform init
-
-      - name: Terraform Validate
-        run: terraform validate
-
       - name: Terraform Plan
         run: terraform plan -out=tfplan.binary
 
@@ -68,6 +9,21 @@ jobs:
         with:
           name: terraform-plan
           path: Environments/test/tfplan.json
+
+      - name: Install OPA
+        run: |
+          curl -L -o opa https://openpolicyagent.org/downloads/latest/opa_linux_amd64_static
+          chmod +x opa
+          sudo mv opa /usr/local/bin/opa
+
+      - name: Run OPA Policy Check
+        run: |
+          opa eval \
+            --fail-defined \
+            --format pretty \
+            --input tfplan.json \
+            --data Policies \
+            "data.storage_services.anonymous_access.deny"
 
       - name: Terraform Apply
         if: github.ref == 'refs/heads/main'
