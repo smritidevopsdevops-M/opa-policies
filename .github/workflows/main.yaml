@@ -77,12 +77,21 @@ jobs:
 
       - name: Run OPA Policy Check
         run: |
+          RESULT=$(opa eval \
+            --format raw \
+            --input tfplan.json \
+            --data Policies \
+            "count(data.storage_services.anonymous_access.deny) > 0")
+
           opa eval \
-            --fail-defined \
             --format pretty \
             --input tfplan.json \
             --data Policies \
             "data.storage_services.anonymous_access.deny"
+
+          if [ "$RESULT" = "true" ]; then
+            exit 1
+          fi
 
       - name: Terraform Apply
         if: github.ref == 'refs/heads/main'

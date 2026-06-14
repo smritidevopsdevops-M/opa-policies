@@ -1,4 +1,5 @@
 package storage_services.anonymous_access
+
 import data.helpers.resources
 
 deny contains msg if {
@@ -9,9 +10,4 @@ deny contains msg if {
         "FAIL: Storage Account %v must disable anonymous blob public access",
         [sa.name]
     )
-}
-
-# Only defined when violations exist — safe to use with --fail-defined
-violations := deny if {
-    count(deny) > 0
 }
